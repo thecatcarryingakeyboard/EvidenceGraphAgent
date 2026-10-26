@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Enterprise GraphRAG Agent</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { max-width: 920px; margin: 0 auto; padding: 48px 24px; background: #10131a; color: #eef2ff; }
+    h1 { margin-bottom: 8px; } p { color: #aab4cc; }
+    textarea { width: 100%; min-height: 110px; padding: 14px; border: 1px solid #35405a; border-radius: 10px; background: #181e2b; color: inherit; font: inherit; }
+    button { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 8px; background: #5b8cff; color: white; cursor: pointer; }
+    pre { white-space: pre-wrap; padding: 18px; border-radius: 10px; background: #181e2b; border: 1px solid #2b354d; }
+    .muted { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Enterprise GraphRAG Agent</h1>
+  <p>离线可运行的企业知识库 Agent：混合检索、图扩展、证据引用和拒答。</p>
+  <textarea id="query">上线前需要完成哪些工作？</textarea>
+  <br /><button id="ask">查询</button>
+  <pre id="result">等待查询…</pre>
+  <p class="muted">API: POST /v1/query · demo corpus · tenant=demo</p>
+  <script>
+    const query = document.querySelector('#query');
+    const result = document.querySelector('#result');
+    document.querySelector('#ask').onclick = async () => {
+      result.textContent = '检索中…';
+      const response = await fetch('/v1/query', { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({query: query.value, mode: 'deep'}) });
+      result.textContent = JSON.stringify(await response.json(), null, 2);
+    };
+  </script>
+</body>
+</html>

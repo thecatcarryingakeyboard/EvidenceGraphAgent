@@ -1,0 +1,23 @@
+services:
+  api:
+    build: .
+    environment:
+      APP_ENV: development
+      LLM_PROVIDER: demo
+    ports:
+      - "8765:8765"
+    command: ["python", "-m", "enterprise_graphrag.cli", "demo"]
+
+  # Optional production dependencies. The core demo does not require them.
+  # postgres:
+  #   image: pgvector/pgvector:pg16
+  #   profiles: [production]
+  #   environment:
+  #     POSTGRES_PASSWORD: change-me
+  #   ports: ["5432:5432"]
+  # neo4j:
+  #   image: neo4j:5-community
+  #   profiles: [production]
+  #   environment:
+  #     NEO4J_AUTH: neo4j/change-me
+  #   ports: ["7474:7474", "7687:7687"]

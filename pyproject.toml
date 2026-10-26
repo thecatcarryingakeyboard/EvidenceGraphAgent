@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterprise-graphrag-agent"
+version = "0.1.0"
+description = "A tenant-aware, evidence-grounded GraphRAG Agent reference implementation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Open Source Contributors"}]
+keywords = ["graphrag", "agent", "rag", "knowledge-graph", "enterprise-ai", "mcp"]
+dependencies = []
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+llm = ["openai>=1.50"]
+dev = ["pytest>=8", "ruff>=0.6"]
+all = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "openai>=1.50",
+  "pytest>=8",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+enterprise-graphrag = "enterprise_graphrag.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
