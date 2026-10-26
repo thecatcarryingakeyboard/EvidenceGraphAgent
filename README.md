@@ -4,7 +4,7 @@
 
 EvidenceGraph Agent 将租户隔离、混合检索、知识图谱扩展、引用链、拒答策略、工具治理和评测放进一条可运行的查询链路。项目默认使用合成数据和离线 Demo Provider，克隆后无需 API Key、数据库或 GPU 即可运行；生产环境可以替换为 OpenAI-compatible 模型、PostgreSQL/pgvector、Neo4j、Microsoft GraphRAG 和 OpenTelemetry。
 
-> 这是一个可阅读、可测试、可扩展的工程参考实现，不代表任何厂商的官方产品，也不承诺开箱即用的生产部署。
+
 
 ## 项目解决什么问题
 
