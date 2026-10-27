@@ -6,7 +6,7 @@ services:
       LLM_PROVIDER: demo
     ports:
       - "8765:8765"
-    command: ["python", "-m", "enterprise_graphrag.cli", "demo"]
+    command: ["python", "-m", "enterprise_graphrag.cli", "demo", "--host", "0.0.0.0"]
 
   # Optional production dependencies. The core demo does not require them.
   # postgres:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def _bool(name: str, default: bool) -> bool:
@@ -27,11 +27,11 @@ class Settings:
     environment: str = os.getenv("APP_ENV", "development")
     llm_provider: str = os.getenv("LLM_PROVIDER", "demo")
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    llm_api_key: str = os.getenv("LLM_API_KEY", "")
+    llm_api_key: str = field(default_factory=lambda: os.getenv("LLM_API_KEY", ""), repr=False)
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
     neo4j_uri: str = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     neo4j_username: str = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password: str = os.getenv("NEO4J_PASSWORD", "")
+    neo4j_password: str = field(default_factory=lambda: os.getenv("NEO4J_PASSWORD", ""), repr=False)
     neo4j_database: str = os.getenv("NEO4J_DATABASE", "neo4j")
     graphrag_project_dir: str = os.getenv("GRAPHRAG_PROJECT_DIR", "")
     graphrag_query_type: str = os.getenv("GRAPHRAG_QUERY_TYPE", "local")

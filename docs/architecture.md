@@ -1,48 +1,31 @@
 # Architecture
 
-EvidenceGraph Agent has two layers so that a fresh clone is runnable while the production-shaped boundaries remain visible.
+The design follows the original structured-query / document-retrieval split. The local implementation and optional external integrations have separate, explicit backends.
 
-```mermaid
-flowchart LR
-  Q[Question + conversation] --> G[Guardrails]
-  G --> P[Planner]
-  P --> S[Tool selection]
-  S --> C[Predefined Cypher]
-  S --> T[Schema-aware Text2Cypher]
-  S --> R[GraphRAG query adapter]
-  C --> M[Evidence normalizer]
-  T --> M
-  R --> M
-  M --> V[Answer validation]
-  V --> A[Answer + citations + trace]
-```
+## Synchronous Agent
 
-## Offline path
+`AgentRunner` performs scope checking, bounded task splitting, deterministic routing, tool execution, evidence collection, generation and citation-ID validation. The default planner splits a compound question into at most four tasks. The runner accepts at most six tool calls, including fallback calls. A primary tool that fails or returns no citations may trigger one document-search fallback. The trace records each decision. This budget limits calls, not wall-clock time.
 
-`agentic.py` is the reference path that can be executed without third-party packages:
+`CatalogQueryTool` executes real, parameterized SQLite queries against a synthetic catalog. It filters by tenant and optionally product name or low stock. Each invocation owns and closes its database connection.
 
-1. `ScopeGuardrail` rejects an empty or clearly out-of-scope question.
-2. `SimplePlanner` splits a compound question into a bounded list of tasks.
-3. `RuleToolRouter` chooses a deterministic tool so the demo is reproducible.
-4. `DocumentSearchTool` uses the in-memory graph and returns only normalized evidence.
-5. `AgentRunner` deduplicates citations before the provider sees them.
+`graph_search` uses BM25 seeds and two rounds of shared-term expansion. These terms are derived by tokenization; they are not entities extracted by an LLM. The local `global` option is one expansion round, not Microsoft GraphRAG's community map-reduce query.
 
-This path is deliberately small. It is a teaching scaffold, not a claim that keyword routing is sufficient for a production assistant.
+## Parallel LangGraph runtime
 
-## LangGraph path
+`build_graph` uses `Send` to run the planned tools in parallel. Results use an additive reducer, retain task indices and are sorted before evidence normalization. The summary node runs after fan-in. The caller may inject a checkpointer and use a distinct thread_id for an independent run. The supplied saver is in-memory; it does not survive process termination. State serialization explicitly allows only the four application dataclasses.
 
-`workflows/langgraph.py` builds the same stages as a `StateGraph`. It uses lazy imports so the offline path does not require LangGraph. A real deployment can add a checkpointer, stream state updates, use `Send` for bounded task fan-out, and place an `interrupt` before a high-risk tool.
+The parallel runtime does not yet implement the synchronous runner's fallback policy, and repeated turns on one thread are not implemented as a conversation product. Use a fresh thread_id per query in the current example.
 
-The state is intentionally JSON-shaped: question, tenant context, tasks, selected tools, normalized results, answer and steps. Keeping the state explicit makes retry and replay easier to inspect and replay.
+## Evidence
 
-## Structured data and document data
+Tool outputs normalize to `ToolResult`; structured rows are serialized as evidence, document hits retain their source text. The aggregation key is `(document_id, chunk_id)`. Final citations are assigned C1, C2, … globally so two tools cannot accidentally reuse an identifier. The answer must contain known citation IDs. This validates identifiers, not the semantic truth of a claim.
 
-- **Predefined Cypher** handles stable, high-frequency queries. Statements are parameterized and reviewed as code.
-- **Text2Cypher** receives the current schema, generates a read-only statement, validates it, runs `EXPLAIN` when configured, and retries with the error as feedback. `ReadOnlyNeo4jAdapter` is a small policy boundary; it is not a replacement for a read-only database account or server-side timeout.
-- **GraphRAG** is an optional adapter around an externally built index. It normalizes local/global/DRIFT/basic context into the same citation contract. Microsoft GraphRAG is not vendored into this repository.
+The offline provider extracts the first three evidence items. The OpenAI-compatible provider performs model generation only when explicitly configured. No benchmark claim is made from the synthetic regression set.
 
-The answer layer should receive normalized evidence from all three tools. It should not receive an arbitrary prose string from a tool, because that makes citations and validation impossible to audit.
+## External boundaries
 
-## What changes in production
+`ReadOnlyNeo4jAdapter` rejects conservative write/procedure keywords and performs EXPLAIN before execution. `Neo4jReadClient` uses a read transaction and timeout; the account must also have read-only permissions. The supplied schema is prompt context rather than complete AST validation.
 
-The sample uses synthetic data and an in-memory store. A real system would add document ACL filtering before retrieval, a durable database, model and embedding versioning, secret injection, query budgets, structured model output, human approval for writes, and a test set built from authorized documents. These are integration points rather than hidden behavior in the demo.
+`MicrosoftGraphRAGAdapter` loads a separately built 2.1.0 index and calls its four public query methods with their respective signatures. The adapter converts tabular context into citations. Community-report context does not automatically establish original page-level provenance.
+
+Neither external adapter automatically enforces tenant authorization. Authentication, document ACLs, persistent storage, human approval queues and semantic faithfulness evaluation remain deployment work.

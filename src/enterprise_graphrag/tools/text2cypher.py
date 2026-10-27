@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from ..adapters.neo4j import Text2CypherExecutor
 from ..agentic import AgentTask, ToolResult
 from ..models import UserContext
+from .evidence import row_citations
 
 
 @dataclass
@@ -22,6 +23,8 @@ class Text2CypherTool:
             tool=self.name,
             task=task.question,
             records=tuple(result["records"]),
+            citations=row_citations(result["records"], "neo4j"),
             errors=errors,
-            metadata={"statement": result["statement"], "attempts": result["attempts"]},
+            metadata={"statement": result["statement"], "attempts": result["attempts"],
+                      "retry_history": result.get("retry_history", [])},
         )

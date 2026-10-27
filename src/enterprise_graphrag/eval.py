@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
-from .models import QueryRequest
+from .models import QueryRequest, UserContext
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,9 @@ def run_eval(
         return EvalReport(0, 0.0, 0.0, 0.0)
     recalled = cited = abstained = 0
     for case in rows:
-        request = request_factory(case) if request_factory else QueryRequest(case.question)
+        request = request_factory(case) if request_factory else QueryRequest(
+            case.question, user=UserContext(tenant_id=case.tenant_id)
+        )
         response = engine.answer(request)
         answer = response.answer.lower()
         recalled += sum(term.lower() in answer for term in case.expected_terms) / max(1, len(case.expected_terms))

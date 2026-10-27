@@ -7,4 +7,4 @@ COPY web ./web
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
 EXPOSE 8765
-CMD ["python", "-m", "enterprise_graphrag.cli", "demo"]
+CMD ["python", "-m", "enterprise_graphrag.cli", "demo", "--host", "0.0.0.0"]

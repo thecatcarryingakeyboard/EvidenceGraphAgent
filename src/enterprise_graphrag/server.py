@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from .agentic import demo_agent
 from .demo_data import demo_graph
 from .models import QueryRequest, UserContext
 from .pipeline import QueryEngine
@@ -43,17 +44,27 @@ class Handler(BaseHTTPRequestHandler):
             self._send({"error": "not found"}, 404)
 
     def do_POST(self) -> None:  # noqa: N802
-        if self.path != "/v1/query":
+        if self.path not in {"/v1/query", "/v1/agent"}:
             self._send({"error": "not found"}, 404)
             return
         try:
             size = int(self.headers.get("Content-Length", "0"))
+            if size < 0 or size > 65536:
+                self._send({"error": "request body must be at most 64 KiB"}, 413)
+                return
             payload = json.loads(self.rfile.read(size) or b"{}")
+            if not isinstance(payload, dict):
+                self._send({"error": "request body must be a JSON object"}, 422)
+                return
             question = str(payload.get("query", "")).strip()
             if not question:
                 self._send({"error": "query is required"}, 422)
                 return
             user = UserContext(str(payload.get("tenant_id", "demo")), str(payload.get("user_id", "anonymous")))
+            if self.path == "/v1/agent":
+                state = demo_agent(self.engine.graph).run(QueryRequest(question, user=user))
+                self._send(state.to_dict())
+                return
             response = self.engine.answer(QueryRequest(question, user=user, mode=payload.get("mode", "local")))
             self._send(response.to_dict())
         except (ValueError, json.JSONDecodeError) as exc:
@@ -63,7 +74,7 @@ class Handler(BaseHTTPRequestHandler):
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"EvidenceGraph Agent demo: http://{host}:{port}")
-    print("POST /v1/query with {\"query\": \"...\"}; Ctrl+C to stop")
+    print("POST /v1/query or /v1/agent with {\"query\": \"...\"}; Ctrl+C to stop")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

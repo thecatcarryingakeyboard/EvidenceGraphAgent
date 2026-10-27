@@ -19,7 +19,9 @@ from .store import KnowledgeGraph
 def main() -> None:
     parser = argparse.ArgumentParser(description="EvidenceGraph Agent")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("demo", help="start the dependency-free demo server")
+    demo = sub.add_parser("demo", help="start the dependency-free demo server")
+    demo.add_argument("--host", default="127.0.0.1")
+    demo.add_argument("--port", type=int, default=8765)
     ask = sub.add_parser("ask", help="ask the built-in demo corpus")
     ask.add_argument("query")
     ask.add_argument("--mode", choices=["local", "global", "deep"], default="local")
@@ -34,7 +36,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "demo":
-        serve()
+        serve(host=args.host, port=args.port)
         return
     if args.command == "ask":
         response = QueryEngine(demo_graph()).answer(QueryRequest(args.query, mode=args.mode))

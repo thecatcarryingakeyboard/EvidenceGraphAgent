@@ -1,34 +1,34 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Enterprise GraphRAG Agent</title>
-  <style>
-    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
-    body { max-width: 920px; margin: 0 auto; padding: 48px 24px; background: #10131a; color: #eef2ff; }
-    h1 { margin-bottom: 8px; } p { color: #aab4cc; }
-    textarea { width: 100%; min-height: 110px; padding: 14px; border: 1px solid #35405a; border-radius: 10px; background: #181e2b; color: inherit; font: inherit; }
-    button { margin-top: 12px; padding: 10px 18px; border: 0; border-radius: 8px; background: #5b8cff; color: white; cursor: pointer; }
-    pre { white-space: pre-wrap; padding: 18px; border-radius: 10px; background: #181e2b; border: 1px solid #2b354d; }
-    .muted { font-size: 13px; }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EvidenceGraph Agent</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif}body{max-width:1040px;margin:auto;padding:40px 24px;background:#10151f;color:#eef2ff}h1{margin-bottom:8px}p,.muted{color:#aab9d0}textarea{box-sizing:border-box;width:100%;min-height:100px;padding:16px;border:1px solid #34435c;border-radius:10px;background:#192231;color:inherit;font:inherit}button,select{margin:10px 8px 10px 0;padding:10px 15px;border:1px solid #34435c;border-radius:7px;background:#23344e;color:inherit;cursor:pointer}button.primary{background:#486be0}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:18px;border:1px solid #34435c;border-radius:10px;background:#192231}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.card{padding:14px;border:1px solid #34435c;border-radius:9px}.status{color:#90c8ff}summary{cursor:pointer;padding:12px 0}
+</style>
 </head>
 <body>
-  <h1>Enterprise GraphRAG Agent</h1>
-  <p>离线可运行的企业知识库 Agent：混合检索、图扩展、证据引用和拒答。</p>
-  <textarea id="query">上线前需要完成哪些工作？</textarea>
-  <br /><button id="ask">查询</button>
-  <pre id="result">等待查询…</pre>
-  <p class="muted">API: POST /v1/query · demo corpus · tenant=demo</p>
-  <script>
-    const query = document.querySelector('#query');
-    const result = document.querySelector('#result');
-    document.querySelector('#ask').onclick = async () => {
-      result.textContent = '检索中…';
-      const response = await fetch('/v1/query', { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({query: query.value, mode: 'deep'}) });
-      result.textContent = JSON.stringify(await response.json(), null, 2);
-    };
-  </script>
+<h1>EvidenceGraph Agent</h1>
+<p>连接业务查询与文档图检索，以可核查的证据回答问题。</p>
+<p class="muted">本地演示 · 合成商品目录 · SQLite 参数化查询 + BM25 / 共现图</p>
+<textarea id="query">比较商品库存并总结售后规则</textarea>
+<div><button class="example" data-q="哪些商品库存不足需要补货">低库存查询</button><button class="example" data-q="智能音箱保修规则是什么">保修规则</button><button class="example" data-q="火星飞船发射时间">证据不足</button></div>
+<select id="endpoint"><option value="/v1/agent">多工具 Agent</option><option value="/v1/query">文档检索</option></select><button class="primary" id="ask">执行查询</button>
+<p id="status" class="status">等待查询</p><pre id="answer">答案将显示在这里</pre>
+<h2>证据来源</h2><div class="cards" id="citations"></div>
+<details><summary>执行轨迹与原始响应</summary><pre id="result"></pre></details>
+<script>
+const q=document.querySelector('#query'),result=document.querySelector('#result'),answer=document.querySelector('#answer'),statusLine=document.querySelector('#status'),cards=document.querySelector('#citations'),ask=document.querySelector('#ask');
+document.querySelectorAll('.example').forEach(b=>b.onclick=()=>{q.value=b.dataset.q});
+ask.onclick=async()=>{
+ ask.disabled=true;statusLine.textContent='查询中…';cards.replaceChildren();
+ try{
+ const response=await fetch(document.querySelector('#endpoint').value,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q.value,mode:'deep'})});
+ const data=await response.json();if(!response.ok)throw new Error(data.error||data.detail||'请求失败');
+ answer.textContent=data.answer;result.textContent=JSON.stringify(data,null,2);statusLine.textContent=data.abstained?'证据不足，已拒答':(data.selected_tools||[data.mode]).join(' → ');
+ (data.citations||[]).forEach(c=>{const card=document.createElement('div');card.className='card';const h=document.createElement('strong');h.textContent='['+c.citation_id+'] '+c.title;const p=document.createElement('p');p.textContent=c.quote;const source=document.createElement('small');source.textContent=c.source_uri;card.append(h,p,source);cards.append(card)});
+ }catch(e){statusLine.textContent='查询失败';answer.textContent=e.message}finally{ask.disabled=false}
+};
+</script>
 </body>
 </html>

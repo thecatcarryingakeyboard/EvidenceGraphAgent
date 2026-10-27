@@ -1,19 +1,17 @@
-"""LangGraph version of the multi-tool workflow.
-
-LangGraph is deliberately imported inside :func:`build_graph`.  The offline
-CLI and unit tests therefore stay dependency-free, while a reader who wants
-to connect a real checkpoint store or interrupt for human approval can inspect
-the exact state graph used by the project.
-"""
+"""Optional LangGraph runtime with parallel Send fan-out and caller-owned checkpoints."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from operator import add
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any
+
+from typing_extensions import TypedDict
 
 from ..agentic import AgentRunner, AgentTask, AgentTool, Guardrail, RuleToolRouter, SimplePlanner, ToolResult
+from ..config import Settings
 from ..models import UserContext
-from ..providers import AnswerProvider
+from ..providers import AnswerProvider, provider_from_settings
 
 
 class WorkflowState(TypedDict, total=False):
@@ -21,11 +19,16 @@ class WorkflowState(TypedDict, total=False):
     user: UserContext
     tasks: list[AgentTask]
     selected_tools: list[str]
-    results: list[ToolResult]
+    results: Annotated[list[ToolResult], add]
     answer: str
+    citations: list[Any]
+    abstained: bool
     validation_errors: list[str]
     blocked: bool
     steps: Annotated[list[str], add]
+    task: AgentTask
+    tool_name: str
+    task_index: int
 
 
 def build_graph(
@@ -35,87 +38,107 @@ def build_graph(
     guardrail: Guardrail | None = None,
     planner: SimplePlanner | None = None,
     router: RuleToolRouter | None = None,
+    checkpointer: Any = None,
 ) -> Any:
-    """Build and compile a LangGraph state graph.
+    """Compile bounded task fan-out; provide a distinct thread_id for each independent run.
 
-    The returned graph is compatible with ``invoke``/``ainvoke``.  For a
-    production application, pass a checkpointer to LangGraph's ``compile``
-    method and insert an ``interrupt`` before high-risk tools.
+    A checkpointer belongs to the caller. InMemorySaver supports local inspection;
+    durable execution requires a separately configured persistent saver.
     """
-
     try:
         from langgraph.graph import END, START, StateGraph
-    except ImportError as exc:  # pragma: no cover - optional dependency
+        from langgraph.types import Send
+    except ImportError as exc:
         raise RuntimeError("Install the 'langgraph' extra to use this workflow") from exc
-
     runner = AgentRunner(tools, provider=provider, guardrail=guardrail, planner=planner, router=router)
 
     def guardrails(state: WorkflowState) -> dict[str, Any]:
         allowed, reason = runner.guardrail.check(state["question"], state.get("user", UserContext()))
-        if not allowed:
-            return {"blocked": True, "answer": reason, "steps": ["guardrails", "final_answer"]}
-        return {"blocked": False, "steps": ["guardrails"]}
+        return {"blocked": not allowed, "answer": reason, "abstained": not allowed, "steps": ["guardrails"]}
 
     def plan(state: WorkflowState) -> dict[str, Any]:
         return {"tasks": runner.planner.plan(state["question"]), "steps": ["planner"]}
 
     def select_tools(state: WorkflowState) -> dict[str, Any]:
-        names = [runner.router.choose(task, runner.tools) for task in state.get("tasks", [])]
-        return {"selected_tools": names, "steps": ["tool_selection"]}
+        return {
+            "selected_tools": [runner.router.choose(task, runner.tools) for task in state["tasks"]],
+            "steps": ["tool_selection"],
+        }
 
-    def execute_tools(state: WorkflowState) -> dict[str, Any]:
-        user = state.get("user", UserContext())
-        results: list[ToolResult] = []
-        steps = []
-        for task, name in zip(state.get("tasks", []), state.get("selected_tools", [])):
-            steps.append(name or "no_tool")
-            if name not in runner.tools:
-                results.append(ToolResult("none", task.question, errors=("no tool available",)))
-            else:
-                results.append(runner.tools[name].run(task, user))
-        return {"results": results, "steps": steps}
+    def fan_out(state: WorkflowState) -> list[Any]:
+        return [
+            Send(
+                "execute_tool",
+                {"task": task, "tool_name": name, "task_index": index, "user": state.get("user", UserContext())},
+            )
+            for index, (task, name) in enumerate(zip(state["tasks"], state["selected_tools"]))
+        ]
+
+    def execute_tool(state: WorkflowState) -> dict[str, Any]:
+        name, task = state["tool_name"], state["task"]
+        try:
+            result = runner.tools[name].run(task, state["user"])
+        except Exception as exc:
+            result = ToolResult(name, task.question, errors=(type(exc).__name__,))
+        result = replace(result, metadata={**result.metadata, "task_index": state["task_index"]})
+        return {"results": [result], "steps": [name]}
 
     def summarize(state: WorkflowState) -> dict[str, Any]:
-        citations = runner._deduplicate_citations(state.get("results", []))
-        if not citations:
-            return {"answer": "当前知识库没有足够的可引用证据，暂不回答。", "steps": ["summarize"]}
-        if runner.provider is None:
-            from ..config import Settings
-            from ..providers import provider_from_settings
-
-            runner.provider = provider_from_settings(Settings.from_env())
-        return {"answer": runner.provider.answer(state["question"], citations), "steps": ["summarize"]}  # type: ignore[union-attr]
-
-    def final_answer(state: WorkflowState) -> dict[str, Any]:
-        return {"steps": ["final_answer"]}
+        results = sorted(state.get("results", []), key=lambda item: item.metadata["task_index"])
+        citations = runner._deduplicate_citations(results)
+        selected_provider = runner.provider or provider_from_settings(Settings.from_env())
+        answer = (
+            selected_provider.answer(state["question"], citations)
+            if citations
+            else "当前知识库没有足够证据，暂不回答。"
+        )
+        return {"answer": answer, "citations": citations, "abstained": not citations, "steps": ["summarize"]}
 
     def validate_answer(state: WorkflowState) -> dict[str, Any]:
-        citations = runner._deduplicate_citations(state.get("results", []))
-        if citations and not any(item.citation_id in state.get("answer", "") for item in citations):
+        import re
+
+        ids = set(re.findall(r"\[(C\d+)\]", state.get("answer", "")))
+        allowed = {item.citation_id for item in state.get("citations", [])}
+        if allowed and (not ids or not ids <= allowed):
             return {
-                "answer": "生成结果没有包含可验证引用，暂不回答。",
-                "validation_errors": ["answer did not contain a citation id"],
+                "answer": "生成结果缺少有效引用，暂不回答。",
+                "abstained": True,
+                "validation_errors": ["answer has missing or unknown citation ids"],
                 "steps": ["validate_answer"],
             }
         return {"validation_errors": [], "steps": ["validate_answer"]}
 
-    def route(state: WorkflowState) -> str:
-        return "final_answer" if state.get("blocked") else "planner"
-
     builder = StateGraph(WorkflowState)
-    builder.add_node("guardrails", guardrails)
-    builder.add_node("planner", plan)
-    builder.add_node("tool_selection", select_tools)
-    builder.add_node("execute_tools", execute_tools)
-    builder.add_node("summarize", summarize)
-    builder.add_node("validate_answer", validate_answer)
-    builder.add_node("final_answer", final_answer)
+    for name, node in [
+        ("guardrails", guardrails),
+        ("planner", plan),
+        ("tool_selection", select_tools),
+        ("execute_tool", execute_tool),
+        ("summarize", summarize),
+        ("validate_answer", validate_answer),
+    ]:
+        builder.add_node(name, node)
+    builder.add_node("final_answer", lambda state: {"steps": ["final_answer"]})
     builder.add_edge(START, "guardrails")
-    builder.add_conditional_edges("guardrails", route, {"planner": "planner", "final_answer": "final_answer"})
+    builder.add_conditional_edges("guardrails", lambda state: "final_answer" if state["blocked"] else "planner")
     builder.add_edge("planner", "tool_selection")
-    builder.add_edge("tool_selection", "execute_tools")
-    builder.add_edge("execute_tools", "summarize")
+    builder.add_conditional_edges("tool_selection", fan_out, ["execute_tool"])
+    builder.add_edge("execute_tool", "summarize")
     builder.add_edge("summarize", "validate_answer")
     builder.add_edge("validate_answer", "final_answer")
     builder.add_edge("final_answer", END)
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
+
+
+def memory_checkpointer() -> Any:
+    """Local saver with an explicit allowlist for this application's state types."""
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+    allowed = [
+        ("enterprise_graphrag.models", "UserContext"),
+        ("enterprise_graphrag.models", "Citation"),
+        ("enterprise_graphrag.agentic", "AgentTask"),
+        ("enterprise_graphrag.agentic", "ToolResult"),
+    ]
+    return InMemorySaver(serde=JsonPlusSerializer(allowed_msgpack_modules=allowed))

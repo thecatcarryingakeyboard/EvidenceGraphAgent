@@ -20,7 +20,7 @@ class AgenticTests(unittest.TestCase):
     def test_agent_keeps_planning_and_tool_steps(self):
         state = demo_agent(demo_graph()).run(QueryRequest("比较商品库存并总结售后规则"))
         self.assertEqual(state.steps[:3], ["guardrails", "planner", "tool_selection"])
-        self.assertEqual(state.selected_tools, ["predefined_cypher", "graphrag"])
+        self.assertEqual(state.selected_tools, ["catalog_query", "graph_search"])
         self.assertIn("validate_answer", state.steps)
         self.assertTrue(state.answer)
 
@@ -31,7 +31,7 @@ class AgenticTests(unittest.TestCase):
             adapter.validate("MATCH (n) DELETE n")
         rows = adapter.run("MATCH (n:Product) RETURN n.name")
         self.assertEqual(rows[0]["count"], 1)
-        self.assertIn("LIMIT 10", graph.queries[0][0])
+        self.assertIn("LIMIT 10", graph.queries[-1][0])
 
     def test_text2cypher_retries_after_invalid_generation(self):
         graph = FakeGraph()
@@ -41,7 +41,7 @@ class AgenticTests(unittest.TestCase):
         result = executor.run("列出节点")
         self.assertEqual(result["attempts"], 2)
         self.assertTrue(result["records"])
-        self.assertEqual(len(result["errors"]), 1)
+        self.assertEqual(len(result["retry_history"]), 1)
 
 
 if __name__ == "__main__":

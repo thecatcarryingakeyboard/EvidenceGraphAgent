@@ -1,18 +1,7 @@
-# Evaluation protocol
+# Evaluation
 
-The included regression set is deliberately small and synthetic. It proves
-that the repository can run in CI; it is not a benchmark claim. A real team
-should version a tenant-safe dataset with:
+`python -m enterprise_graphrag.cli eval --json` runs three synthetic document cases and reports answer-term recall, citation rate and abstention rate. These are inexpensive regressions, not semantic answer accuracy or a comparison with other RAG systems. Cases honor tenant_id when constructing the query.
 
-- direct fact questions for retrieval recall and citation precision;
-- multi-hop questions requiring entity or community expansion;
-- temporal questions where stale documents must be rejected;
-- permission questions where another tenant's evidence must never appear;
-- unanswerable questions for abstention and calibrated confidence;
-- tool questions for allowlist, argument validation and human approval.
+The unit suite also covers actual catalog filtering, failed-tool fallback, citation collisions and fabricated IDs, tenant evidence access, source path redaction, Cypher rejection/retry and GraphRAG's four API signatures. With optional FastAPI and LangGraph dependencies, the same suite exercises HTTP requests and parallel tool fan-in/checkpoint reads.
 
-Track at least answer-term recall, citation coverage, groundedness/faithfulness,
-p95 latency, token cost and abstention rate. Run the cheap deterministic set on
-every pull request and the model-graded suite nightly. Ragas, DeepEval or a
-custom evaluator can consume the `QueryResponse` JSON without changing the
-pipeline.
+Real Neo4j, GraphRAG index building and hosted model calls are not tested end to end. Future evaluation needs authorized documents, expected source IDs, unanswerable cases, temporal validity, answer faithfulness, latency and token cost. A model judge should be reported separately from deterministic checks.

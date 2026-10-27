@@ -46,8 +46,11 @@ class KnowledgeGraph:
         self.entity_chunks: dict[str, set[str]] = defaultdict(set)
 
     def ingest(self, document: Document, chunk_size: int = 900, overlap: int = 120) -> list[Chunk]:
-        if chunk_size <= overlap:
+        if overlap < 0 or chunk_size <= overlap:
             raise ValueError("chunk_size must be greater than overlap")
+        existing = self.documents.get(document.id)
+        if existing and existing.tenant_id != document.tenant_id:
+            raise ValueError("document id belongs to another tenant")
         self.documents[document.id] = document
         chunks: list[Chunk] = []
         start = 0
@@ -120,4 +123,4 @@ class KnowledgeGraph:
             for entity_id in self.chunk_entities.pop(chunk_id, set()):
                 self.entity_chunks[entity_id].discard(chunk_id)
         self.documents.pop(document.id, None)
-        return self.ingest(replace(document))
+        return self.ingest(replace(document), chunk_size=chunk_size, overlap=overlap)

@@ -1,18 +1,19 @@
 # Changelog
 
+## 0.3.0 - 2026-10-27
+
+- Replaced misleading offline tool aliases with an actual parameterized SQLite catalog and explicitly named graph_search backend.
+- Added BM25, bounded synchronous fallback, unified citation IDs and unknown-reference rejection.
+- Added LangGraph Send fan-out and injectable checkpoints, with an explicit state serialization allowlist.
+- Corrected Microsoft GraphRAG 2.1.0 DRIFT/basic query arguments and tabular context conversion.
+- Added real Neo4j read transactions, EXPLAIN, query timeout and structured-row evidence.
+- Added an Agent API and evidence cards to the local demo page.
+- Expanded regression checks and publication scanning across Git history; removed local absolute paths from document source URIs.
+
 ## 0.2.0 - 2026-10-26
 
-- Reframed the repository as a focused AssistGen learning project.
-- Added an offline multi-stage Agent workflow with guardrails, planning,
-  tool selection and normalized tool results.
-- Added optional LangGraph workflow, read-only Neo4j/Text2Cypher boundary and
-  GraphRAG local/global/DRIFT/basic adapter.
-- Added a demo guide, retry tests and safer public-release checks.
+- Added explicit Agent stages, optional graph tools and workflow adapters.
 
 ## 0.1.0 - 2026-10-26
 
-- Added an offline tenant-aware GraphRAG Agent pipeline.
-- Added local/global/deep hybrid retrieval with graph expansion.
-- Added citation objects, abstention, trace events and regression evaluation.
-- Added optional FastAPI/OpenAI-compatible adapters and a dependency-free demo.
-- Added Docker, CI, open-source hygiene and security documentation.
+- Added a synthetic offline knowledge-query pipeline, citations, traces and evaluation.

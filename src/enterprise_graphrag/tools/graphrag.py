@@ -27,4 +27,4 @@ class GraphRAGTool:
                 metadata={"mode": self.mode or self.adapter.query_type},
             )
         except Exception as exc:
-            return ToolResult(self.name, task.question, errors=(f"{type(exc).__name__}: {exc}",))
+            return ToolResult(self.name, task.question, errors=(type(exc).__name__,))

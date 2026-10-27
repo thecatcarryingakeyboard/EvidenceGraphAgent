@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .config import Settings
 from .models import Citation, QueryRequest, QueryResponse
@@ -18,7 +18,7 @@ COMPLEX_MARKERS = re.compile(r"(为什么|原因|影响|比较|风险|趋势|how
 @dataclass
 class QueryEngine:
     graph: KnowledgeGraph
-    settings: Settings = Settings()
+    settings: Settings = field(default_factory=Settings.from_env)
     provider: AnswerProvider | None = None
 
     def __post_init__(self) -> None:
@@ -56,7 +56,10 @@ class QueryEngine:
         ]
         context = citations[: self.settings.max_retrieval_k]
         with trace.span("generate", provider=getattr(self.provider, "name", "unknown"), citations=len(context)):
-            answer = self.provider.answer(request.query, context)  # type: ignore[union-attr]
+            answer = (
+                self.provider.answer(request.query, context)
+                if context else "当前知识库没有足够证据，暂不回答。"
+            )
         confidence = min(0.99, max(0.0, (context[0].score / 4.0) if context else 0.0))
         abstained = not context
         with trace.span("audit", abstained=abstained, tenant_id=request.user.tenant_id):
