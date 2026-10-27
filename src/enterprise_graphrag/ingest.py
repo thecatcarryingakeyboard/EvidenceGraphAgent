@@ -7,13 +7,16 @@ from pathlib import Path
 from .models import Document
 from .store import KnowledgeGraph, stable_id
 
-
 SUPPORTED_SUFFIXES = {".md", ".markdown", ".txt"}
 
 
 def ingest_path(graph: KnowledgeGraph, path: str | Path, tenant_id: str = "demo") -> list[str]:
     root = Path(path)
-    files = [root] if root.is_file() else sorted(item for item in root.rglob("*") if item.suffix.lower() in SUPPORTED_SUFFIXES)
+    files = (
+        [root]
+        if root.is_file()
+        else sorted(item for item in root.rglob("*") if item.suffix.lower() in SUPPORTED_SUFFIXES)
+    )
     ids: list[str] = []
     for file in files:
         text = file.read_text(encoding="utf-8")

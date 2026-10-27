@@ -43,7 +43,11 @@ class PipelineTests(unittest.TestCase):
 
     def test_ingestion_chunks_and_graph_expansion(self) -> None:
         graph = KnowledgeGraph()
-        graph.ingest(Document("d1", "内部手册", "权限审批需要人工确认。\n工具调用需要审计。", tenant_id="t1"), chunk_size=30, overlap=5)
+        graph.ingest(
+            Document("d1", "内部手册", "权限审批需要人工确认。\n工具调用需要审计。", tenant_id="t1"),
+            chunk_size=30,
+            overlap=5,
+        )
         self.assertTrue(graph.chunks)
         self.assertTrue(graph.entities)
         self.assertTrue(graph.expand(set(graph.chunks), UserContext(tenant_id="t1")))

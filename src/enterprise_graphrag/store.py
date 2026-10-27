@@ -15,7 +15,6 @@ from typing import Iterable
 
 from .models import Chunk, Document, Edge, Entity, UserContext
 
-
 TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9_+-]{1,}|[\u4e00-\u9fff]{2,}")
 
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from .models import Document
 from .store import KnowledgeGraph
 
-
 DEMO_DOCUMENTS = (
     Document(
         id="doc_handbook",
@@ -36,6 +35,17 @@ DEMO_DOCUMENTS = (
             "系统由路由器、混合检索器、证据编排器、工具策略和审计层组成。\n"
             "local 模式回答局部事实，global 模式使用实体关系扩展上下文，deep 模式允许多跳检索。\n"
             "MCP 工具需要显式 allowlist、租户上下文和超时限制；工具调用结果也要进入引用链。"
+        ),
+    ),
+    Document(
+        id="doc_catalog",
+        title="演示电商商品与售后知识库",
+        source_uri="demo://catalog",
+        text=(
+            "智能音箱 Mini 属于智能家居类，单价 299 元，库存 42 件，由星河供应商提供。"
+            "智能音箱 Pro 单价 599 元，库存 8 件，低于 10 件时需要补货。\n"
+            "智能音箱提供一年有限保修；非人为故障可以申请维修或换货，退换货需要保留订单和故障描述。"
+            "售后规则来自演示文档，涉及实际订单时仍应调用业务系统核对。"
         ),
     ),
 )

@@ -31,7 +31,11 @@ class EvalReport:
         }
 
 
-def run_eval(engine: object, cases: Iterable[EvalCase], request_factory: Callable[[EvalCase], QueryRequest] | None = None) -> EvalReport:
+def run_eval(
+    engine: object,
+    cases: Iterable[EvalCase],
+    request_factory: Callable[[EvalCase], QueryRequest] | None = None,
+) -> EvalReport:
     rows = list(cases)
     if not rows:
         return EvalReport(0, 0.0, 0.0, 0.0)

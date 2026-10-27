@@ -12,7 +12,6 @@ from .retrieval import HybridRetriever
 from .store import KnowledgeGraph
 from .trace import Trace
 
-
 COMPLEX_MARKERS = re.compile(r"(为什么|原因|影响|比较|风险|趋势|how|why|compare|impact|risk)", re.I)
 
 
@@ -37,7 +36,12 @@ class QueryEngine:
         with trace.span("route", selected_mode=mode):
             pass
         with trace.span("retrieve", mode=mode, top_k=request.top_k):
-            hits = self.retriever.search(request.query, request.user, mode, min(request.top_k, self.settings.max_retrieval_k))
+            hits = self.retriever.search(
+                request.query,
+                request.user,
+                mode,
+                min(request.top_k, self.settings.max_retrieval_k),
+            )
         citations = [
             Citation(
                 citation_id=f"C{i}",

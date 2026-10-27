@@ -1,18 +1,19 @@
 # Publishing checklist
 
-The repository is already initialized on branch `main` with a clean commit.
-Create an empty public GitHub repository named `enterprise-graphrag-agent`,
-then run from this directory:
+This repository is intended to be public and contains only synthetic demo data and optional integration boundaries.
+
+Before pushing a release:
 
 ```bash
-python3 scripts/check_open_source.py
+python scripts/check_open_source.py
 PYTHONPATH=src python -m unittest discover -s tests -v
-git remote add origin https://github.com/<your-account>/enterprise-graphrag-agent.git
-git push -u origin main
+python -m compileall -q src
+git diff --check
+git status --short
 ```
 
-Do not add the original AssistGen directory as a subdirectory or commit its
-`.env`, logs, uploads, PDFs, parquet outputs, `node_modules` or vendored
-GraphRAG source. If any real credential has ever been committed in that
-working tree, rotate it before making a public repository; removing the file
-from the latest commit is not enough to make an exposed credential safe.
+The public repository should contain `.env.example`, never `.env`. Do not add the original working directory as a subdirectory, and do not copy its logs, uploads, PDFs, parquet outputs, model caches, `node_modules` or vendored GraphRAG source.
+
+If a real credential has ever appeared in a local file or commit, rotate it before publishing. Removing the file in a later commit does not make an exposed credential safe. Review GitHub secret scanning and the full Git history before making the repository public.
+
+The recommended first public commit should explain that this is an interview and learning project, link the upstream GraphRAG/LangGraph projects, and state which optional integrations were actually tested. Avoid claiming benchmark or production results that were not measured.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 
-from .models import Chunk, RetrievalHit, SearchMode, UserContext
+from .models import RetrievalHit, SearchMode, UserContext
 from .store import KnowledgeGraph, tokenize
 
 

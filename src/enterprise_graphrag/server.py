@@ -62,7 +62,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
     server = ThreadingHTTPServer((host, port), Handler)
-    print(f"Enterprise GraphRAG Agent demo: http://{host}:{port}")
+    print(f"AssistGen Graph Agent demo: http://{host}:{port}")
     print("POST /v1/query with {\"query\": \"...\"}; Ctrl+C to stop")
     try:
         server.serve_forever()

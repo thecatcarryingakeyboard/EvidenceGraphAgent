@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .agentic import demo_agent
 from .demo_data import demo_graph
 from .eval import EvalCase, run_eval
 from .ingest import ingest_path
@@ -16,12 +17,14 @@ from .store import KnowledgeGraph
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Enterprise GraphRAG Agent")
+    parser = argparse.ArgumentParser(description="AssistGen Graph Agent")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("demo", help="start the dependency-free demo server")
     ask = sub.add_parser("ask", help="ask the built-in demo corpus")
     ask.add_argument("query")
     ask.add_argument("--mode", choices=["local", "global", "deep"], default="local")
+    agent = sub.add_parser("agent", help="run the multi-stage offline Agent workflow")
+    agent.add_argument("query")
     ingest = sub.add_parser("ingest", help="ingest Markdown/text files and answer a question")
     ingest.add_argument("path")
     ingest.add_argument("query")
@@ -36,6 +39,11 @@ def main() -> None:
     if args.command == "ask":
         response = QueryEngine(demo_graph()).answer(QueryRequest(args.query, mode=args.mode))
         print(json.dumps(response.to_dict(), ensure_ascii=False, indent=2))
+        return
+    if args.command == "agent":
+        graph = demo_graph()
+        state = demo_agent(graph).run(QueryRequest(args.query))
+        print(json.dumps(state.to_dict(), ensure_ascii=False, indent=2, default=str))
         return
     if args.command == "ingest":
         graph = KnowledgeGraph()

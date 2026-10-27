@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 - 2026-10-26
+
+- Reframed the repository as an interview-friendly AssistGen learning project.
+- Added an offline multi-stage Agent workflow with guardrails, planning,
+  tool selection and normalized tool results.
+- Added optional LangGraph workflow, read-only Neo4j/Text2Cypher boundary and
+  GraphRAG local/global/DRIFT/basic adapter.
+- Added interview demo notes, retry tests and safer public-release checks.
+
 ## 0.1.0 - 2026-10-26
 
 - Added an offline tenant-aware GraphRAG Agent pipeline.
