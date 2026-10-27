@@ -18,4 +18,11 @@
 - [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence)：checkpoint 通过 thread_id 关联执行状态，持久化能力由 saver 提供。当前测试使用内存 saver，未声明跨进程持久化。
 - [LightRAG README](https://github.com/HKUDS/LightRAG)：混合检索、增量处理与 reranking 可作为后续实验方向。当前没有复制其算法实现，也没有与其做质量对比。
 
+README 的“技术趋势与设计判断”进一步关联了以下公开资料与实验取舍：
+
+- [GraphRAG Query Engine](https://microsoft.github.io/graphrag/query/overview/)：Local 面向实体相关问题，Global 在社区报告上执行 map-reduce 且开销较高；DRIFT 利用社区信息细化后续问题。用于说明按问题类型和成本选择检索策略的依据，不将所有路径统一视为图检索。
+- LightRAG README 的更新记录列有 2025-08 reranker、文档删除与图重建，以及 2025-11 RAGAS / Langfuse 接入；功能说明包括 mix 检索与增量处理。这些是上游能力，本仓库尚未实现向量召回、重排和持久化增量索引。
+- LangGraph persistence 区分 checkpoint 与 store；内存 saver 在进程重启后丢失状态。因此本项目的内存 checkpoint 示例不能作为跨进程恢复或长期记忆的验证。
+- [Ragas Faithfulness](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/)：以回答主张能否由检索上下文支持衡量忠实度。当前引用 ID 校验只检查引用存在性，不能替代该类语义评测，也未集成 Ragas。
+
 本次 GitHub API 请求未能获取可靠的实时星数，因此不把未经核实的星数和排名写入项目介绍。技术选择以可运行实现和官方接口为依据。
