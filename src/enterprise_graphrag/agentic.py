@@ -195,7 +195,7 @@ class CallableTool:
 class DemoStructuredTool:
     """A deterministic stand-in for a predefined Neo4j query.
 
-    It deliberately reuses the local corpus so the interview demo can show a
+    It deliberately reuses the local corpus so the offline demo can show a
     structured-tool route without requiring a running database.
     """
 

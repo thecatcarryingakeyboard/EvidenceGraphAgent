@@ -1,4 +1,4 @@
-"""LangGraph version of the interview-friendly multi-tool workflow.
+"""LangGraph version of the multi-tool workflow.
 
 LangGraph is deliberately imported inside :func:`build_graph`.  The offline
 CLI and unit tests therefore stay dependency-free, while a reader who wants

@@ -1,4 +1,4 @@
-"""Small, read-only Neo4j boundary used by the interview example.
+"""Small, read-only Neo4j boundary used by the reference example.
 
 The original learning project generated Cypher with an LLM and then executed
 it through ``langchain_neo4j``.  This adapter keeps that idea explicit without

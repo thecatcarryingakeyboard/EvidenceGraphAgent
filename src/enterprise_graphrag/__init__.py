@@ -1,4 +1,4 @@
-"""AssistGen Graph Agent reference implementation.
+"""EvidenceGraph Agent reference implementation.
 
 The package intentionally keeps the core pipeline dependency-light.  External
 LLM, vector, graph and observability providers are adapters, so the demo can be

@@ -23,7 +23,7 @@ class Settings:
     manager or environment injection.
     """
 
-    app_name: str = os.getenv("APP_NAME", "AssistGen Graph Agent")
+    app_name: str = os.getenv("APP_NAME", "EvidenceGraph Agent")
     environment: str = os.getenv("APP_ENV", "development")
     llm_provider: str = os.getenv("LLM_PROVIDER", "demo")
     llm_base_url: str = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
@@ -46,7 +46,7 @@ class Settings:
         """Create a fresh settings snapshot after environment changes."""
 
         return cls(
-            app_name=os.getenv("APP_NAME", "AssistGen Graph Agent"),
+            app_name=os.getenv("APP_NAME", "EvidenceGraph Agent"),
             environment=os.getenv("APP_ENV", "development"),
             llm_provider=os.getenv("LLM_PROVIDER", "demo"),
             llm_base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),

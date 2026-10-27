@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "enterprise-graphrag-agent"
 version = "0.2.0"
-description = "An interview-friendly LangGraph, Neo4j and GraphRAG learning project"
+description = "A LangGraph, Neo4j and GraphRAG learning project"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -35,6 +35,7 @@ all = [
 [project.scripts]
 enterprise-graphrag = "enterprise_graphrag.cli:main"
 assistgen-agent = "enterprise_graphrag.cli:main"
+evidencegraph-agent = "enterprise_graphrag.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

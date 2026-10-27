@@ -1,6 +1,6 @@
 # Architecture
 
-AssistGen Graph Agent has two layers so that a fresh clone is runnable while the production-shaped boundaries remain visible.
+EvidenceGraph Agent has two layers so that a fresh clone is runnable while the production-shaped boundaries remain visible.
 
 ```mermaid
 flowchart LR
@@ -33,7 +33,7 @@ This path is deliberately small. It is a teaching scaffold, not a claim that key
 
 `workflows/langgraph.py` builds the same stages as a `StateGraph`. It uses lazy imports so the offline path does not require LangGraph. A real deployment can add a checkpointer, stream state updates, use `Send` for bounded task fan-out, and place an `interrupt` before a high-risk tool.
 
-The state is intentionally JSON-shaped: question, tenant context, tasks, selected tools, normalized results, answer and steps. Keeping the state explicit makes retry and replay easier to explain in an interview.
+The state is intentionally JSON-shaped: question, tenant context, tasks, selected tools, normalized results, answer and steps. Keeping the state explicit makes retry and replay easier to inspect and replay.
 
 ## Structured data and document data
 

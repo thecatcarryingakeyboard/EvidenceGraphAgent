@@ -6,7 +6,7 @@ from setuptools import find_packages, setup
 setup(
     name="enterprise-graphrag-agent",
     version="0.2.0",
-    description="An interview-friendly LangGraph, Neo4j and GraphRAG learning project",
+    description="A LangGraph, Neo4j and GraphRAG learning project",
     packages=find_packages("src"),
     package_dir={"": "src"},
     python_requires=">=3.10",
@@ -26,5 +26,6 @@ setup(
     entry_points={"console_scripts": [
         "enterprise-graphrag=enterprise_graphrag.cli:main",
         "assistgen-agent=enterprise_graphrag.cli:main",
+        "evidencegraph-agent=enterprise_graphrag.cli:main",
     ]},
 )

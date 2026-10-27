@@ -16,4 +16,4 @@ The public repository should contain `.env.example`, never `.env`. Do not add th
 
 If a real credential has ever appeared in a local file or commit, rotate it before publishing. Removing the file in a later commit does not make an exposed credential safe. Review GitHub secret scanning and the full Git history before making the repository public.
 
-The recommended first public commit should explain that this is an interview and learning project, link the upstream GraphRAG/LangGraph projects, and state which optional integrations were actually tested. Avoid claiming benchmark or production results that were not measured.
+The recommended first public commit should explain that this is a learning and reference project, link the upstream GraphRAG/LangGraph projects, and state which optional integrations were actually tested. Avoid claiming benchmark or production results that were not measured.

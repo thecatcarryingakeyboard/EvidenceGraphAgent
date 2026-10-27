@@ -1,133 +1,150 @@
-# AssistGen Graph Agent
+# EvidenceGraph Agent
 
-一个面向面试展示和源码学习的 **LangGraph + Neo4j + Microsoft GraphRAG** 参考项目。
+面向企业知识库的证据驱动 GraphRAG Agent 参考实现。
 
-这个项目把企业知识问答里最值得展示的一条链路串起来：
+EvidenceGraph Agent 将租户隔离、混合检索、知识图谱扩展、引用链、拒答策略、工具治理和评测放进一条可运行的查询链路。项目默认使用合成数据和离线 Demo Provider，克隆后无需 API Key、数据库或 GPU 即可运行；生产环境可以替换为 OpenAI-compatible 模型、PostgreSQL/pgvector、Neo4j、Microsoft GraphRAG 和 OpenTelemetry。
 
-> 用户问题 → 业务护栏 → 任务规划 → 工具选择 → Neo4j 结构化查询 / GraphRAG 文档检索 → 结果汇总 → 答案校验
+> 这是一个可阅读、可测试、可扩展的工程参考实现，不代表任何厂商的官方产品，也不承诺开箱即用的生产部署。
 
-项目围绕一个合成的电商知识库编写，默认模式不需要 API Key、Neo4j、GPU 或云服务即可运行。安装可选依赖后，可以把同一条工作流接到 DeepSeek、Ollama、OpenAI-compatible 模型、Neo4j 和 Microsoft GraphRAG。
+## 项目解决什么问题
 
-## 为什么做这个项目
+普通 RAG 适合从文档中寻找相关片段，企业问题还经常需要结构化查询、跨文档总结和多跳关系推理。系统需要同时回答以下问题：
 
-普通 RAG 适合“从文档里找一段话”，但企业问题经常同时包含两种查询：
+- 回答来自哪个文档、哪个片段，能否被复核；
+- 一个租户能否看到另一个租户的知识；
+- 没有证据时是否会明确拒答；
+- 结构化查询是否只读、是否经过 schema 校验；
+- 检索质量、延迟、成本和工具轨迹能否持续评测。
 
-- **结构化事实**：某商品的库存、价格、供应商、订单数量；
-- **非结构化知识**：售后规则、故障说明、多个文档之间的总结和比较。
+本项目把这些约束设计成稳定的数据结构和适配器接口，方便替换模型、索引和数据库，而不改变上层 Agent 流程。
 
-原始 AssistGen 学习项目已经包含了 LangGraph、多工具 Agent、Neo4j Text2Cypher 和 GraphRAG 查询。本仓库将这条学习主线重新整理成一个小而完整的公开示例，重点展示设计取舍和可验证的运行轨迹，而不是把上游项目源码整份复制进来。
+## 核心能力
 
-## 5 分钟看懂项目
+| 能力 | 说明 |
+| --- | --- |
+| Local / Global / Deep | 直接事实检索、图关系扩展、多跳检索三种模式 |
+| 多工具 Agent | Guardrails、Planner、Tool selection、结果汇总和答案校验 |
+| Hybrid Retrieval | 词法召回与实体共现图扩展，并返回检索原因和分数 |
+| Predefined Cypher | 高频结构化查询使用参数化、可审计的预定义语句 |
+| Text2Cypher | schema 校验、只读策略、`EXPLAIN` 和有上限的失败重试 |
+| GraphRAG Adapter | 适配 Microsoft GraphRAG 的 local/global/DRIFT/basic 查询 |
+| Evidence Citations | 每条回答返回文档、chunk、原文片段、来源 URI 和引用 ID |
+| Tenant Isolation | 文档、chunk、实体和检索结果都带 `tenant_id` |
+| Abstention | 找不到证据时返回 `abstained=true`，避免无依据生成 |
+| Tool Governance | 工具白名单、风险等级、租户上下文和人工审批接口 |
+| Trace & Evaluation | 路由、检索、生成、审计阶段的轨迹和确定性回归评测 |
+
+## 工作流
 
 ```mermaid
 flowchart LR
-    Q[用户问题] --> G[Guardrails]
+    U[Query + tenant context] --> G[Guardrails]
     G --> P[Planner]
     P --> S[Tool selector]
-    S --> C[预定义 Cypher]
-    S --> T[Text2Cypher]
-    S --> R[GraphRAG local/global/drift/basic]
-    C --> M[Summarize]
+    S --> C[Predefined Cypher]
+    S --> T[Schema-aware Text2Cypher]
+    S --> R[GraphRAG local/global/DRIFT/basic]
+    C --> M[Evidence normalizer]
     T --> M
     R --> M
-    M --> V[Answer validation]
-    V --> A[答案 + 证据 + trace]
+    M --> L[LLM Provider]
+    L --> V[Answer validation]
+    V --> A[Answer + citations]
+    A --> X[Trace / audit / eval]
 ```
 
-面试时可以按下面的顺序演示：
-
-1. 用 `demo` 命令启动离线服务；
-2. 问一个需要文档检索的问题，展示引用片段；
-3. 问一个需要结构化数据的问题，展示工具路由和 Cypher 结果；
-4. 打开 `docs/architecture.md`，解释失败重试、只读校验和 GraphRAG 适配边界；
-5. 运行评测，说明如何验证检索、引用和拒答，而不是只展示一条“看起来正确”的回答。
-
-## 快速开始：无需外部服务
+离线 Agent 可以直接查看完整步骤：
 
 ```bash
-git clone https://github.com/thecatcarryingakeyboard/enterprise-graphrag-agent.git
-cd enterprise-graphrag-agent
-
-# 直接运行离线问答
-PYTHONPATH=src python -m enterprise_graphrag.cli ask "上线前需要完成哪些工作？"
-
-# 查看多工具 Agent 的完整步骤
 PYTHONPATH=src python -m enterprise_graphrag.cli agent "比较商品库存并总结售后规则"
-
-# 运行确定性回归评测
-PYTHONPATH=src python -m enterprise_graphrag.cli eval --json
 ```
 
-启动无依赖 Demo 服务：
-
-```bash
-PYTHONPATH=src python -m enterprise_graphrag.cli demo
-```
-
-然后打开 <http://127.0.0.1:8765/>，或调用：
-
-```bash
-curl -s http://127.0.0.1:8765/v1/query \
-  -H 'content-type: application/json' \
-  -d '{"query":"没有足够证据时应该怎么办？","mode":"deep"}'
-```
-
-## 运行结果长什么样
-
-每次查询都保留可以追问的结构化信息：
+一个查询响应固定包含：
 
 ```json
 {
-  "answer": "…… [C1] ……",
-  "citations": [
-    {
-      "citation_id": "C1",
-      "title": "检索增强生成评测规范",
-      "quote": "没有足够证据时应拒答或请求补充……",
-      "source_uri": "demo://eval"
-    }
-  ],
-  "mode": "deep",
-  "trace_id": "…",
-  "confidence": 0.82,
+  "answer": "基于证据生成的回答 [C1]",
+  "citations": [],
+  "mode": "local",
+  "trace_id": "...",
+  "confidence": 0.72,
   "abstained": false,
-  "trace": [
-    {"name": "route", "duration_ms": 0.1},
-    {"name": "retrieve", "duration_ms": 0.4},
-    {"name": "generate", "duration_ms": 0.0}
-  ]
+  "trace": []
 }
 ```
 
 没有可见证据时，系统会返回 `abstained=true`，不会让 Demo Provider 编造一段完整答案。
 
-## 代码如何对应原始学习项目
+## 快速开始
 
-| 原项目中的学习点 | 公开仓库中的位置 |
-| --- | --- |
-| LangGraph 状态图 | `src/enterprise_graphrag/workflows/langgraph.py`（可选依赖） |
-| Guardrails / Planner / Tool selection | `src/enterprise_graphrag/agentic.py` |
-| 预定义查询、Text2Cypher、GraphRAG 三类工具 | `src/enterprise_graphrag/tools/` |
-| Neo4j schema-aware 查询和只读安全边界 | `src/enterprise_graphrag/adapters/neo4j.py` |
-| GraphRAG local/global/drift/basic 适配 | `src/enterprise_graphrag/adapters/graphrag.py` |
-| 证据、引用和答案校验 | `src/enterprise_graphrag/models.py`、`pipeline.py` |
-| 评测与回归 | `src/enterprise_graphrag/eval.py`、`tests/` |
+项目支持 Python 3.10+，最小 Demo 不需要安装第三方依赖。
 
-默认离线实现故意使用小型内存图和规则路由，便于阅读和调试；安装可选依赖后再替换为真实模型和数据库。这样面试演示不依赖一台已经配置好的服务器，也能清楚说明生产环境的替换点。
+```bash
+git clone https://github.com/thecatcarryingakeyboard/EvidenceGraphAgent.git
+cd EvidenceGraphAgent
 
-## 可选：连接模型、Neo4j 和 GraphRAG
+PYTHONPATH=src python -m enterprise_graphrag.cli ask "上线前需要完成哪些工作？"
+PYTHONPATH=src python -m enterprise_graphrag.cli agent "比较商品库存并总结售后规则"
+PYTHONPATH=src python -m enterprise_graphrag.cli eval --json
+```
 
-安装开发依赖：
+如果使用已安装的命令行入口：
+
+```bash
+evidencegraph-agent eval --json
+```
+
+启动本地 Demo API 和网页：
+
+```bash
+PYTHONPATH=src python -m enterprise_graphrag.cli demo
+```
+
+打开 <http://127.0.0.1:8765/>，或调用 API：
+
+```bash
+curl -s http://127.0.0.1:8765/v1/query \
+  -H 'content-type: application/json' \
+  -d '{"query":"MCP 工具如何治理？","mode":"deep"}'
+```
+
+如果需要 FastAPI/OpenAPI 和 OpenAI-compatible 模型：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e '.[api,llm]'
+uvicorn enterprise_graphrag.api:create_app --factory --reload
+```
+
+也可以使用 Docker：
+
+```bash
+docker compose up --build
+```
+
+## 接入自己的文档
+
+支持 Markdown 和纯文本文件：
+
+```bash
+PYTHONPATH=src python -m enterprise_graphrag.cli ingest ./docs "你的问题"
+```
+
+当前 Demo 使用轻量级切分和词法检索。生产接入时，可将文档解析替换为 MarkItDown、Docling 或 MinerU，将索引替换为 PostgreSQL/pgvector、Neo4j 或 Microsoft GraphRAG。相关接口位于 `store.py`、`retrieval.py` 和 `adapters/`。
+
+## 可选集成
+
+安装完整开发依赖：
 
 ```bash
 pip install -e '.[dev,langgraph,llm,neo4j,graphrag]'
 ```
 
-从环境变量模板开始：
+复制环境变量模板：
 
 ```bash
 cp .env.example .env
-# 在 shell 或 Secret Manager 中注入真实值，不要提交 .env
 ```
 
 常见配置包括：
@@ -135,12 +152,12 @@ cp .env.example .env
 ```text
 LLM_PROVIDER=openai_compatible
 LLM_BASE_URL=https://api.deepseek.com/v1
-LLM_API_KEY=...
+LLM_API_KEY=your-key
 LLM_MODEL=deepseek-chat
 
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=...
+NEO4J_PASSWORD=your_password
 NEO4J_DATABASE=neo4j
 
 GRAPHRAG_PROJECT_DIR=/path/to/a/graphrag/project
@@ -149,22 +166,30 @@ GRAPHRAG_QUERY_TYPE=local
 
 Neo4j 查询遵循“生成 → schema 校验 → `EXPLAIN` → 只读执行 → 失败重试”的边界；参数使用参数化查询，禁止 `CREATE`、`DELETE`、`SET`、`DROP` 等写操作。GraphRAG 适配器只负责加载上游生成的索引和统一上下文，不在本仓库 vendoring Microsoft GraphRAG 源码。
 
+不要把真实密钥提交到 Git。生产部署应从 Secret Manager 注入凭证，并从认证上下文中获得 `tenant_id`。
+
 ## 目录结构
 
 ```text
 src/enterprise_graphrag/
-  agentic.py                 # 无依赖的 Agent 状态、规划和工具路由
-  pipeline.py                # 轻量查询链路：route → retrieve → cite → answer
+  agentic.py                 # 无依赖的 Agent 状态、规划、路由和工具结果
   workflows/langgraph.py     # 可选 LangGraph 状态图
   tools/                     # predefined Cypher、Text2Cypher、GraphRAG 工具
+  store.py                   # 文档、chunk、实体和关系
+  retrieval.py              # local/global/deep 混合检索
+  pipeline.py               # 路由、检索、引用、生成和审计
+  providers.py               # Demo 与 OpenAI-compatible provider
+  governance.py              # 工具白名单和审批策略
   adapters/                  # Neo4j、Microsoft GraphRAG 等外部适配器
-  models.py                  # Query、Evidence、Citation 等稳定数据契约
-  eval.py                    # 离线回归评测
+  api.py                     # 可选 FastAPI 服务
+  server.py                  # 无依赖 Demo 服务
+  eval.py                    # 回归评测
 tests/                       # 不依赖外部服务的测试
-docs/                        # 架构、面试演示、评测和发布说明
+docs/                        # 架构、评测、部署和发布说明
+web/                         # Demo 网页
 ```
 
-## 测试与质量检查
+## 测试和质量检查
 
 ```bash
 PYTHONPATH=src python -m unittest discover -s tests -v
@@ -174,28 +199,34 @@ ruff check src tests
 git diff --check
 ```
 
-## 面试展示时可以主动说明的边界
+评测协议见 [docs/evaluation.md](docs/evaluation.md)，架构说明见 [docs/architecture.md](docs/architecture.md)，安全边界见 [docs/threat-model.md](docs/threat-model.md)，部署建议见 [docs/deployment.md](docs/deployment.md)。
 
-- 这是学习型参考实现，不声称可以直接承担生产流量；
-- 离线模式的规则 Planner/Router 是为了可重复演示，真实部署可替换为结构化 LLM 输出；
-- GraphRAG、Neo4j、LangGraph 和模型 SDK 都是可选依赖，版本和索引格式应由部署方锁定；
-- 评测样例是合成数据，接入真实企业文档前需要重新建立权限、数据脱敏和人工验收流程。
+## 路线图
 
-## 前沿方向与参考项目
+- 持久化存储、RBAC/ABAC、文档 ACL 和删除传播；
+- BM25、向量、图遍历和 reranker 的成本感知融合；
+- 多模态文档解析、页码/表格/图片区域级引用；
+- LangGraph 持久化执行、MCP 注册表和人工审批队列；
+- Ragas/DeepEval、OpenTelemetry、Phoenix 或 Langfuse 集成；
+- Claim-level provenance、动态社区选择和 LazyGraphRAG 风格的早停策略。
 
-本项目的设计取舍参考了公开项目的工程思路，代码保持独立：
+详细规划见 [docs/roadmap.md](docs/roadmap.md)。
 
-- [Microsoft GraphRAG](https://github.com/microsoft/graphrag)：local/global/DRIFT/basic 查询与社区摘要；
-- [LightRAG](https://github.com/HKUDS/LightRAG)：双层图与向量检索、增量更新；
-- [KAG](https://github.com/OpenSPG/KAG)：schema 和逻辑推理；
-- [RAGFlow](https://github.com/infiniflow/ragflow)：文档解析和可视化 RAG；
-- [LangGraph](https://github.com/langchain-ai/langgraph)：checkpoint、interrupt、Send 并行和 durable execution；
-- [MCP servers](https://github.com/modelcontextprotocol/servers)：工具、资源和权限边界；
-- [Ragas](https://github.com/explodinggradients/ragas) / [DeepEval](https://github.com/confident-ai/deepeval)：检索和答案评测；
-- [Phoenix](https://github.com/Arize-ai/phoenix) / [Langfuse](https://github.com/langfuse/langfuse)：trace 与可观测性。
+## 参考项目
 
-上游许可证和本项目的使用边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本仓库自己的代码采用 [MIT License](LICENSE)。
+本项目借鉴了公开项目所代表的工程方向，具体实现保持独立：
+
+- [Microsoft GraphRAG](https://github.com/microsoft/graphrag)
+- [LightRAG](https://github.com/HKUDS/LightRAG)
+- [KAG](https://github.com/OpenSPG/KAG)
+- [RAGFlow](https://github.com/infiniflow/ragflow)
+- [PageIndex](https://github.com/VectifyAI/PageIndex)
+- [LangGraph](https://github.com/langchain-ai/langgraph)
+- [Ragas](https://github.com/explodinggradients/ragas) / [DeepEval](https://github.com/confident-ai/deepeval)
+- [Model Context Protocol servers](https://github.com/modelcontextprotocol/servers)
+
+第三方依赖和许可证说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。项目本身采用 [MIT License](LICENSE)。
 
 ## 贡献
 
-欢迎提交 Issue 和 Pull Request。新增工具或适配器时，请同时补充最小可运行示例、失败路径、权限影响和评测变化。贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [SECURITY.md](SECURITY.md)。
+欢迎提交 Issue 和 Pull Request。新增检索、模型、工具或适配器时，请同时说明权限影响、失败路径、评测变化和新的环境变量。贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [SECURITY.md](SECURITY.md)。

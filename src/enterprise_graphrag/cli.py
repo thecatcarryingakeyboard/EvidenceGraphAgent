@@ -17,7 +17,7 @@ from .store import KnowledgeGraph
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="AssistGen Graph Agent")
+    parser = argparse.ArgumentParser(description="EvidenceGraph Agent")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("demo", help="start the dependency-free demo server")
     ask = sub.add_parser("ask", help="ask the built-in demo corpus")

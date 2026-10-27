@@ -15,7 +15,7 @@ def create_app(engine: QueryEngine | None = None) -> Any:
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise RuntimeError("Install enterprise-graphrag-agent[api] to run the FastAPI server") from exc
 
-    app = FastAPI(title="AssistGen Graph Agent", version="0.2.0")
+    app = FastAPI(title="EvidenceGraph Agent", version="0.2.0")
     query_engine = engine or QueryEngine(demo_graph())
 
     @app.get("/health")
